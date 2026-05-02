@@ -3,20 +3,18 @@ using UnityEngine;
 public class DaggerDamage : MonoBehaviour
 {
     public int damage = 1;
-    public float speed = 6f;
-    public Vector2 direction = Vector2.left;
     public float lifeTime = 5f;
     public bool destroyOnHit = true;
 
     private void Start()
     {
+        // Ya no necesitamos moverla aquí con Translate.
+        // El Spawner ya le dio una velocidad inicial al Rigidbody2D.
         Destroy(gameObject, lifeTime);
     }
 
-    private void Update()
-    {
-        transform.Translate(direction.normalized * speed * Time.deltaTime);
-    }
+    // BORRAMOS EL MÉTODO UPDATE que tenía el Translate
+    // porque el Rigidbody2D se encarga del movimiento de forma más real.
 
     private void OnTriggerEnter2D(Collider2D collision)
     {

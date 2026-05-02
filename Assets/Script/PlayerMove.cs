@@ -1,80 +1,161 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
-public class PlayerMove : MonoBehaviour
+public class PlayerController : MonoBehaviour
 {
-    public float runSpeed = 2;
-    public float jumpSpeed = 3;
+    [Header("Movimiento")]
+    public float runSpeed = 5f;
+    public float crouchSpeed = 2.5f; // Velocidad reducida al agacharse
+    public float jumpSpeed = 8f;
     public int maxJumps = 2;
-    Rigidbody2D rb2D;
     private int jumpsRemaining;
 
-    public bool betterJump = false;
+    [Header("Salto Mejorado")]
+    public bool betterJump = true;
+    public float fallMultiplier = 2.5f;
+    public float lowJumpMultiplier = 2f;
 
-    public float fallMultiplier = 0.5f;
+    [Header("Agacharse")]
+    public float crouchScaleY = 0.5f;
+    private float originalScaleY;
+    private bool isCrouching = false;
+    public LayerMask groundLayer;
 
-    public float lowJumpMultiplier = 1f;
+    [Header("Componentes")]
+    private Rigidbody2D rb2D;
+    private BoxCollider2D col;
     public SpriteRenderer spriteRenderer;
     public Animator animator;
+
+    private Vector2 originalColliderSize;
+    private Vector2 originalColliderOffset;
+
     void Start()
     {
         rb2D = GetComponent<Rigidbody2D>();
+        col = GetComponent<BoxCollider2D>();
+
+        originalScaleY = transform.localScale.y;
+        originalColliderSize = col.size;
+        originalColliderOffset = col.offset;
+
         jumpsRemaining = maxJumps;
     }
 
-
+    void Update()
+    {
+        // El Input de Salto y Agachado se procesa en Update para mayor precisión
+        HandleJumpInput();
+        HandleCrouchInput();
+    }
 
     void FixedUpdate()
     {
-        if (Input.GetKey("d") || Input.GetKey("right"))
-        {
-            rb2D.linearVelocity = new Vector2(runSpeed, rb2D.linearVelocity.y);
-            spriteRenderer.flipX = false;
-            animator.SetBool("Run", true);
+        HandleMovement();
+        ApplyBetterJump();
+    }
 
-        }
-        else if (Input.GetKey("a") || Input.GetKey("left"))
-        {
-            rb2D.linearVelocity = new Vector2(-runSpeed, rb2D.linearVelocity.y);
-            spriteRenderer.flipX = true;
-            animator.SetBool("Run", true);
+    void HandleMovement()
+    {
+        float horizontal = Input.GetAxisRaw("Horizontal"); // d, right, a, left
 
+        // Determinar velocidad actual (si está agachado, va más lento)
+        float currentSpeed = isCrouching ? crouchSpeed : runSpeed;
+
+        if (horizontal != 0)
+        {
+            rb2D.linearVelocity = new Vector2(horizontal * currentSpeed, rb2D.linearVelocity.y);
+            spriteRenderer.flipX = horizontal < 0;
+            animator.SetBool("Run", true);
         }
         else
         {
             rb2D.linearVelocity = new Vector2(0, rb2D.linearVelocity.y);
             animator.SetBool("Run", false);
-
         }
+
+        // Actualizar estados de suelo y animaciones
         if (CheckGround.isGrounded)
         {
             jumpsRemaining = maxJumps;
+            animator.SetBool("Jump", false);
         }
-        if (Input.GetKeyDown("space") && jumpsRemaining > 0)
-        {
-            rb2D.linearVelocity = new Vector2(rb2D.linearVelocity.x, jumpSpeed);
-            jumpsRemaining--;
-        }
-        if (CheckGround.isGrounded == false)
+        else
         {
             animator.SetBool("Jump", true);
             animator.SetBool("Run", false);
         }
-        if (CheckGround.isGrounded == true)
+    }
+
+    void HandleJumpInput()
+    {
+        // No permitir saltar si hay un techo encima mientras se está agachado
+        if (Input.GetKeyDown(KeyCode.Space) && jumpsRemaining > 0)
         {
-            animator.SetBool("Jump", false);
+            rb2D.linearVelocity = new Vector2(rb2D.linearVelocity.x, jumpSpeed);
+            jumpsRemaining--;
         }
-        if (betterJump)
+    }
+
+    void HandleCrouchInput()
+    {
+        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
         {
-            if (rb2D.linearVelocity.y < 0)
+            Crouch();
+        }
+        else
+        {
+            TryStandUp();
+        }
+    }
+
+    void Crouch()
+    {
+        if (!isCrouching)
+        {
+            isCrouching = true;
+            animator.SetBool("Crouch", true); // Asegúrate de tener este parámetro en tu Animator
+
+            // Reducir tamaño visual
+            transform.localScale = new Vector3(transform.localScale.x, crouchScaleY, transform.localScale.z);
+
+            // Ajustar collider
+            col.size = new Vector2(originalColliderSize.x, originalColliderSize.y * crouchScaleY);
+            col.offset = new Vector2(originalColliderOffset.x, originalColliderOffset.y * crouchScaleY);
+        }
+    }
+
+    void TryStandUp()
+    {
+        if (isCrouching)
+        {
+            // Raycast para detectar si hay algo sobre la cabeza (usando la altura original)
+            RaycastHit2D hit = Physics2D.Raycast(transform.position, Vector2.up, originalColliderSize.y, groundLayer);
+
+            if (hit.collider == null)
             {
-                rb2D.linearVelocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier) * Time.deltaTime;
-            }
-            if (rb2D.linearVelocity.y > 0 && !Input.GetKey("space"))
-            {
-                rb2D.linearVelocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier) * Time.deltaTime;
+                isCrouching = false;
+                animator.SetBool("Crouch", false);
+
+                // Volver a escala y collider original
+                transform.localScale = new Vector3(transform.localScale.x, originalScaleY, transform.localScale.z);
+                col.size = originalColliderSize;
+                col.offset = originalColliderOffset;
             }
         }
     }
 
+    void ApplyBetterJump()
+    {
+        if (betterJump)
+        {
+            if (rb2D.linearVelocity.y < 0)
+            {
+                rb2D.linearVelocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime;
+            }
+            else if (rb2D.linearVelocity.y > 0 && !Input.GetKey(KeyCode.Space))
+            {
+                rb2D.linearVelocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime;
+            }
+        }
+    }
 }

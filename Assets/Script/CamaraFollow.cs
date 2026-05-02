@@ -2,34 +2,13 @@ using UnityEngine;
 
 public class Camara : MonoBehaviour
 {
-    // Personaje a seguir
-    public Transform target;
-
-    // Distancia de la cámara respecto al personaje
-    public Vector3 offset = new Vector3(0, 5, -10);
-
-    // Velocidad de seguimiento
-    public float smoothSpeed = 5f;
-
-    void LateUpdate()
+    public Transform objetivo;
+    public float velocidadCamara = 0.025f;
+    public Vector3 desplazamiento;
+    private void LateUpdate()
     {
-        if (target == null)
-            return;
-
-        // Posición deseada
-        Vector3 desiredPosition = target.position + offset;
-
-        // Movimiento suave
-        Vector3 smoothedPosition = Vector3.Lerp(
-            transform.position,
-            desiredPosition,
-            smoothSpeed * Time.deltaTime
-        );
-
-        // Aplicar posición
-        transform.position = smoothedPosition;
-
-        // Mirar al personaje
-        transform.LookAt(target);
+            Vector3 posicionDeseada = objetivo.position + desplazamiento;
+            Vector3 posicionSuavizada = Vector3.Lerp(transform.position, posicionDeseada, velocidadCamara);
+            transform.position = posicionSuavizada;
     }
 }

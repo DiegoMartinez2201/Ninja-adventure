@@ -5,7 +5,9 @@ public class PlayerMove : MonoBehaviour
 {
     public float runSpeed = 2;
     public float jumpSpeed = 3;
+    public int maxJumps = 2;
     Rigidbody2D rb2D;
+    private int jumpsRemaining;
 
     public bool betterJump = false;
 
@@ -17,6 +19,7 @@ public class PlayerMove : MonoBehaviour
     void Start()
     {
         rb2D = GetComponent<Rigidbody2D>();
+        jumpsRemaining = maxJumps;
     }
 
 
@@ -43,9 +46,14 @@ public class PlayerMove : MonoBehaviour
             animator.SetBool("Run", false);
 
         }
-        if (Input.GetKey("space") && CheckGround.isGrounded)
+        if (CheckGround.isGrounded)
+        {
+            jumpsRemaining = maxJumps;
+        }
+        if (Input.GetKeyDown("space") && jumpsRemaining > 0)
         {
             rb2D.linearVelocity = new Vector2(rb2D.linearVelocity.x, jumpSpeed);
+            jumpsRemaining--;
         }
         if (CheckGround.isGrounded == false)
         {

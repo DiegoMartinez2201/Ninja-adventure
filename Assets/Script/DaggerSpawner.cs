@@ -4,6 +4,9 @@ public class DaggerSpawner : MonoBehaviour
 {
     public GameObject daggerPrefab;
     public float spawnInterval = 2f;
+    public float daggerSpeed = 6f;
+    public float daggerRotationOffset = -90f;
+    public bool useRandomYOffset = false;
     public Vector2 randomYOffset = new Vector2(-1f, 1f);
 
     [Header("Referencia al Objetivo")]
@@ -11,8 +14,18 @@ public class DaggerSpawner : MonoBehaviour
 
     private float nextSpawnTime;
 
+    private void Awake()
+    {
+        FindPlayerTarget();
+    }
+
     private void Update()
     {
+        if (playerTarget == null)
+        {
+            FindPlayerTarget();
+        }
+
         if (daggerPrefab == null || Time.time < nextSpawnTime || playerTarget == null)
         {
             return;
@@ -24,28 +37,37 @@ public class DaggerSpawner : MonoBehaviour
 
     private void SpawnDagger()
     {
-        // 1. Posición de salida con el offset aleatorio
         Vector3 spawnPosition = transform.position;
-        spawnPosition.y += Random.Range(randomYOffset.x, randomYOffset.y);
+        if (useRandomYOffset)
+        {
+            spawnPosition.y += Random.Range(randomYOffset.x, randomYOffset.y);
+        }
 
-        // 2. Calcular dirección hacia el Ninja
         Vector2 direction = (playerTarget.position - spawnPosition).normalized;
+        if (direction == Vector2.zero)
+        {
+            return;
+        }
 
-        // 3. Calcular el ángulo de rotación para que "mire" al Ninja
-        // Usamos Atan2 para obtener el ángulo en radianes y lo pasamos a grados
+        // La imagen de la daga apunta hacia arriba, por eso usamos un offset de -90 grados.
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-        Quaternion spawnRotation = Quaternion.Euler(0, 0, angle);
+        Quaternion spawnRotation = Quaternion.Euler(0, 0, angle + daggerRotationOffset);
 
-        // 4. Instanciar la daga
         GameObject newDagger = Instantiate(daggerPrefab, spawnPosition, spawnRotation);
 
-        // 5. IMPORTANTE: Le damos velocidad en esa dirección
-        // Asumiendo que tu daga tiene Rigidbody2D y un script de movimiento
-        Rigidbody2D rb = newDagger.GetComponent<Rigidbody2D>();
-        if (rb != null)
+        DaggerDamage daggerDamage = newDagger.GetComponent<DaggerDamage>();
+        if (daggerDamage != null)
         {
-            float speed = 5f; // Puedes cambiar esta velocidad o usar una del prefab
-            rb.linearVelocity = direction * speed;
+            daggerDamage.Initialize(direction, daggerSpeed, playerTarget);
+        }
+    }
+
+    private void FindPlayerTarget()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            playerTarget = player.transform;
         }
     }
 }

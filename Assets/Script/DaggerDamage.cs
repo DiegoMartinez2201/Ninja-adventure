@@ -3,18 +3,42 @@ using UnityEngine;
 public class DaggerDamage : MonoBehaviour
 {
     public int damage = 1;
-    public float lifeTime = 5f;
+    public float speed = 6f;
+    public Vector2 direction = Vector2.left;
+    public float maxLifeTime = 30f;
+    public float destroyDistanceAfterPassingPlayer = 0.5f;
     public bool destroyOnHit = true;
+
+    private Transform targetToPass;
 
     private void Start()
     {
-        // Ya no necesitamos moverla aquí con Translate.
-        // El Spawner ya le dio una velocidad inicial al Rigidbody2D.
-        Destroy(gameObject, lifeTime);
+        Destroy(gameObject, maxLifeTime);
     }
 
-    // BORRAMOS EL MÉTODO UPDATE que tenía el Translate
-    // porque el Rigidbody2D se encarga del movimiento de forma más real.
+    private void Update()
+    {
+        Vector2 moveDirection = direction.normalized;
+        transform.Translate(moveDirection * speed * Time.deltaTime, Space.World);
+
+        if (targetToPass == null)
+        {
+            return;
+        }
+
+        Vector2 targetToDagger = (Vector2)transform.position - (Vector2)targetToPass.position;
+        if (Vector2.Dot(targetToDagger, moveDirection) > destroyDistanceAfterPassingPlayer)
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    public void Initialize(Vector2 newDirection, float newSpeed, Transform playerTarget)
+    {
+        direction = newDirection.normalized;
+        speed = newSpeed;
+        targetToPass = playerTarget;
+    }
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
